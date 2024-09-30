@@ -4,12 +4,10 @@ import time
 import threading
 from CAM import CAM, ItsPduHeader, CoopAwareness, CamParameters, BasicContainer, ReferencePosition, HighFrequencyContainer, BasicVehicleContainerHighFrequency
 
-# Global variables
-node_id = 0  # Your node ID
+node_id = 0  
 UDP_PORT = 37020
-CAM_INTERVAL = 0.1  # Seconds between CAM messages
+CAM_INTERVAL = 0.1 
 
-# Serialize CAM object to JSON
 def serialize_cam(cam):
     return json.dumps({
         'header': {
@@ -38,7 +36,6 @@ def serialize_cam(cam):
         }
     })
 
-# Read 8 lines from the file and update CAM object
 def read_data_from_file(file):
     try:
         lines = [float(file.readline().strip()) for _ in range(8)]
@@ -49,7 +46,6 @@ def read_data_from_file(file):
         print(f"Error reading data: {e}")
         return None
 
-# Send CAM message via UDP (broadcast or unicast)
 def send_cam(data, ip_address):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
@@ -58,24 +54,19 @@ def send_cam(data, ip_address):
     except Exception as e:
         print(f"Error sending CAM: {e}")
 
-# Send CAM messages at regular intervals
 def send_cam_messages(cam, file, ip_address):
     while True:
         data = read_data_from_file(file)
         if data is None:
-            print("End of file reached or invalid data.")
+            print("End of file reached.")
             break
 
-        # Update CAM object with new data
         update_cam_data(cam, data)
-
-        # Serialize and send the CAM message
         cam_data = serialize_cam(cam)
         send_cam(cam_data, ip_address)
 
         time.sleep(CAM_INTERVAL)
 
-# Update CAM object with new data
 def update_cam_data(cam, data):
     cam.cam.camParameters.highFrequencyContainer.container.distance = data[0]
     cam.cam.camParameters.highFrequencyContainer.container.relativeSpeed = data[1]
@@ -85,11 +76,8 @@ def update_cam_data(cam, data):
     cam.cam.camParameters.highFrequencyContainer.container.speed = data[5]
     cam.cam.camParameters.basicContainer.referencePosition.posx = data[6]
     cam.cam.camParameters.basicContainer.referencePosition.posy = data[7]
-
-    # Update generation delta time
     cam.cam.generationDeltaTime = cam.cam.generate_delta_time()
 
-# Print relevant fields from the CAM message
 def print_cam_data(cam_data):
     cam_parameters = cam_data['cam']['camParameters']
     
@@ -110,12 +98,11 @@ def print_cam_data(cam_data):
     print(f"Position X: {posx}, Position Y: {posy}")
     print("-" * 50)
 
-# Receive CAM messages via UDP
 def receive_cam_messages():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
             udp_socket.bind(('0.0.0.0', UDP_PORT))
-            print("Listening for CAM messages...")
+            print("Listening for CAM messages")
 
             while True:
                 data, addr = udp_socket.recvfrom(1024)
@@ -130,9 +117,7 @@ def receive_cam_messages():
     except Exception as e:
         print(f"Error receiving CAM: {e}")
 
-# Main function
 def main():
-    # Create a CAM object
     reference_position = ReferencePosition(posx = 0, posy = 0)
     basic_container = BasicContainer(referencePosition=reference_position)
     high_freq_container = HighFrequencyContainer(
@@ -143,9 +128,8 @@ def main():
     cam_params = CamParameters(basic_container, high_freq_container)
     cam_message = CAM(ItsPduHeader(), CoopAwareness(cam_params))
 
-    broadcast_ip = '10.15.4.255'  # Broadcast IP
+    broadcast_ip = '10.15.4.255' 
 
-    # Open file using context manager
     with open(f'{node_id}.txt', 'r') as file:
         # Start sending and receiving CAM messages
         send_thread = threading.Thread(target=send_cam_messages, args=(cam_message, file, broadcast_ip))
