@@ -2,7 +2,22 @@ import socket
 import json
 import time
 import threading
+import signal
+
 from CAM import CAM, ItsPduHeader, CoopAwareness, CamParameters, BasicContainer, ReferencePosition, HighFrequencyContainer, BasicVehicleContainerHighFrequency
+
+# 全局退出标志
+exit_flag = False
+
+# 捕捉 SIGTSTP 信号（Ctrl+Z）
+def signal_handler(sig, frame):
+    global exit_flag
+    print("\nSIGTSTP (Ctrl+Z) detected. Exiting gracefully...")
+    exit_flag = True
+
+# 将 SIGTSTP 信号与处理函数绑定
+signal.signal(signal.SIGTSTP, signal_handler)
+
 # Function to serialize the CAM object to JSON
 def serialize_cam(cam):
     return json.dumps({
@@ -45,15 +60,13 @@ def read_data_from_file(file):
 # Function to send CAM message via UDP (broadcast or unicast)
 def send_cam(data, ip_address):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    
     udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    
     udp_socket.sendto(data.encode('utf-8'), (ip_address, 37020))
-
 
 # Function to send CAM messages at intervals
 def send_cam_messages(cam, file, ip_address):
-    while True:
+    global exit_flag
+    while not exit_flag:
         # Read the next 8 lines of data from the file
         data = read_data_from_file(file)
         
@@ -114,28 +127,32 @@ def print_cam_data(cam_data):
 
 # Function to receive CAM messages via UDP and print them
 def receive_cam_messages():
+    global exit_flag
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.bind(('0.0.0.0', 37020))  # 监听所有接口上的 37020 端口
 
     print("Listening for CAM messages...")
 
-    while True:
-        data, addr = udp_socket.recvfrom(1024)  # 设置缓冲区大小为 1024 字节
-        cam_data = json.loads(data.decode('utf-8'))  # 解析接收到的 JSON 数据
+    while not exit_flag:
+        try:
+            data, addr = udp_socket.recvfrom(1024)  # 设置缓冲区大小为 1024 字节
+            cam_data = json.loads(data.decode('utf-8'))  # 解析接收到的 JSON 数据
 
-        # 从接收到的 CAM 数据中提取 nodeId
-        received_node_id = cam_data['cam']['camParameters']['highFrequencyContainer']['nodeId']
+            # 从接收到的 CAM 数据中提取 nodeId
+            received_node_id = cam_data['cam']['camParameters']['highFrequencyContainer']['nodeId']
 
-        # 如果接收到的消息是自己发送的（通过 nodeId 过滤），则跳过
-        if received_node_id == 0:
+            # 如果接收到的消息是自己发送的（通过 nodeId 过滤），则跳过
+            if received_node_id == 0:
+                continue
+
+            print(f"Received CAM message from {addr}")
+            print_cam_data(cam_data)
+        except socket.timeout:
             continue
-
-        print(f"Received CAM message from {addr}")
-        print_cam_data(cam_data)
-
 
 # Main function to run the send and receive threads
 def main():
+    global exit_flag
     # 创建初始 CAM 对象
     reference_position = ReferencePosition(posx=100.0, posy=200.0)
     basic_container = BasicContainer(referencePosition=reference_position)
@@ -158,18 +175,18 @@ def main():
 
     # 创建线程用于接收 CAM 消息
     receive_thread = threading.Thread(target=receive_cam_messages)
+
+    # 启动线程
+    send_thread.start()
+    receive_thread.start()
+
+    # 等待线程完成
     try:
-        # 等待线程结束
         send_thread.join()
         receive_thread.join()
     except KeyboardInterrupt:
-        # 捕捉 Ctrl+C
-        print("Shutting down gracefully...")
-        global exit_flag
-        exit_flag = True  # 设定退出标志
-        send_thread.join()
-        receive_thread.join()
-
+        print("KeyboardInterrupt detected. Exiting gracefully...")
+        exit_flag = True  # 捕获 Ctrl+C 后也退出
 
 # Run the program
 if __name__ == "__main__":
