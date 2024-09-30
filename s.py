@@ -158,14 +158,17 @@ def main():
 
     # 创建线程用于接收 CAM 消息
     receive_thread = threading.Thread(target=receive_cam_messages)
-
-    # 启动线程
-    send_thread.start()
-    receive_thread.start()
-
-    # 将线程加入到主线程中保持运行
-    send_thread.join()
-    receive_thread.join()
+    try:
+        # 等待线程结束
+        send_thread.join()
+        receive_thread.join()
+    except KeyboardInterrupt:
+        # 捕捉 Ctrl+C
+        print("Shutting down gracefully...")
+        global exit_flag
+        exit_flag = True  # 设定退出标志
+        send_thread.join()
+        receive_thread.join()
 
 
 # Run the program
