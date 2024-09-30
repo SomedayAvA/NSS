@@ -39,7 +39,7 @@ def serialize_cam(cam):
 def read_data_from_file(file):
     try:
         lines = [float(file.readline().strip()) for _ in range(8)]
-        if not lines or len(lines) < 8:  # End of file or incomplete data
+        if not lines or len(lines) < 8:  
             return None
         return lines
     except ValueError as e:
