@@ -45,7 +45,11 @@ def read_data_from_file(file):
 # Function to send CAM message via UDP (broadcast or unicast)
 def send_cam(data, ip_address):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    
     udp_socket.sendto(data.encode('utf-8'), (ip_address, 37020))
+
 
 # Function to send CAM messages at intervals
 def send_cam_messages(cam, file, ip_address):
@@ -126,7 +130,7 @@ def receive_cam_messages():
 
 # Main function to run the send and receive threads
 def main():
-    # Create the initial CAM object
+    # 创建初始 CAM 对象
     reference_position = ReferencePosition(posx=100.0, posy=200.0)
     basic_container = BasicContainer(referencePosition=reference_position)
     high_freq_container = HighFrequencyContainer(
@@ -137,25 +141,26 @@ def main():
     cam_params = CamParameters(basic_container, high_freq_container)
     cam_message = CAM(ItsPduHeader(), CoopAwareness(cam_params))
 
-    # Define the IP address for unicast
-    unicast_ip = '192.168.1.100'  # Replace with the target device's IP address
+    # 定义广播地址
+    broadcast_ip = '10.15.4.255'  # 使用你网络的广播地址
 
-    # Open the file containing the data for sending
+    # 打开包含发送数据的文件
     file = open('0.txt', 'r')
 
-    # Create a thread for sending CAM messages
-    send_thread = threading.Thread(target=send_cam_messages, args=(cam_message, file, unicast_ip))
+    # 创建线程用于发送 CAM 消息 (广播)
+    send_thread = threading.Thread(target=send_cam_messages, args=(cam_message, file, broadcast_ip))
 
-    # Create a thread for receiving CAM messages
+    # 创建线程用于接收 CAM 消息
     receive_thread = threading.Thread(target=receive_cam_messages)
 
-    # Start both threads
+    # 启动线程
     send_thread.start()
     receive_thread.start()
 
-    # Join threads to the main thread to keep them running
+    # 将线程加入到主线程中保持运行
     send_thread.join()
     receive_thread.join()
+
 
 # Run the program
 if __name__ == "__main__":
