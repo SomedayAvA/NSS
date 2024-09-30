@@ -119,10 +119,19 @@ def receive_cam_messages():
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.bind(('0.0.0.0', 37020))  # Bind to all available interfaces and port 37020
 
+    # 获取本机 IP 地址，用于过滤自己发送的广播消息
+    local_ip = socket.gethostbyname(socket.gethostname())
+
     print("Listening for CAM messages...")
 
     while True:
         data, addr = udp_socket.recvfrom(1024)  # Buffer size is 1024 bytes
+        
+        # addr[0] 是发送者的 IP 地址
+        if addr[0] == local_ip:
+            # 如果消息是从自己发出的，则跳过
+            continue
+        
         cam_data = json.loads(data.decode('utf-8'))  # Parse the received JSON data
 
         print(f"Received CAM message from {addr}")
