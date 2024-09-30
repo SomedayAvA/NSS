@@ -1,9 +1,10 @@
 import socket
 import json
 import time
-
+import threading
+from CAM import CAM, ItsPduHeader, CoopAwareness, CamParameters, BasicContainer, ReferencePosition, HighFrequencyContainer, BasicVehicleContainerHighFrequency
 # Function to serialize the CAM object to JSON
-def serialize_cam(cam: CAM):
+def serialize_cam(cam):
     return json.dumps({
         'header': {
             'protocolVersion': cam.header.protocolVersion,
@@ -41,27 +42,13 @@ def read_data_from_file(file):
         lines.append(float(line))
     return lines
 
-# Function to send CAM message via UDP (unicast)
+# Function to send CAM message via UDP (broadcast or unicast)
 def send_cam(data, ip_address):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp_socket.sendto(data.encode('utf-8'), (ip_address, 37020))  # Change IP address to unicast
+    udp_socket.sendto(data.encode('utf-8'), (ip_address, 37020))
 
-# Create the initial CAM object
-reference_position = ReferencePosition(posx=100.0, posy=200.0)
-basic_container = BasicContainer(referencePosition=reference_position)
-high_freq_container = HighFrequencyContainer(
-    BasicVehicleContainerHighFrequency(
-        distance=10.5, relativeSpeed=1.2, nodeId=1, acceleration=2.0, controllerAcceleration=1.5, speed=60.0
-    )
-)
-cam_params = CamParameters(basic_container, high_freq_container)
-cam_message = CAM(ItsPduHeader(), CoopAwareness(cam_params))
-
-# Define the IP address for unicast
-unicast_ip = '192.168.1.100'  # Replace with the target device's IP address
-
-# Open the file containing the data
-with open('data.txt', 'r') as file:
+# Function to send CAM messages at intervals
+def send_cam_messages(cam, file, ip_address):
     while True:
         # Read the next 8 lines of data from the file
         data = read_data_from_file(file)
@@ -71,25 +58,105 @@ with open('data.txt', 'r') as file:
             break  # Stop the process when no more data is available
 
         # Update the CAM object with the new data
-        high_freq_container.container.distance = data[0]
-        high_freq_container.container.relativeSpeed = data[1]
-        high_freq_container.container.nodeId = int(data[2])
-        high_freq_container.container.acceleration = data[3]
-        high_freq_container.container.controllerAcceleration = data[4]
-        high_freq_container.container.speed = data[5]
-        basic_container.referencePosition.posx = data[6]
-        basic_container.referencePosition.posy = data[7]
+        cam.cam.camParameters.highFrequencyContainer.container.distance = data[0]
+        cam.cam.camParameters.highFrequencyContainer.container.relativeSpeed = data[1]
+        cam.cam.camParameters.highFrequencyContainer.container.nodeId = int(data[2])
+        cam.cam.camParameters.highFrequencyContainer.container.acceleration = data[3]
+        cam.cam.camParameters.highFrequencyContainer.container.controllerAcceleration = data[4]
+        cam.cam.camParameters.highFrequencyContainer.container.speed = data[5]
+        cam.cam.camParameters.basicContainer.referencePosition.posx = data[6]
+        cam.cam.camParameters.basicContainer.referencePosition.posy = data[7]
 
         # Update CAM generationDeltaTime
-        cam_message.cam.generationDeltaTime = cam_message.cam.generate_delta_time()
+        cam.cam.generationDeltaTime = cam.cam.generate_delta_time()
 
         # Serialize CAM to JSON format
-        cam_data = serialize_cam(cam_message)
+        cam_data = serialize_cam(cam)
 
-        # Send the serialized CAM message via unicast
-        send_cam(cam_data, unicast_ip)
+        # Send the serialized CAM message
+        send_cam(cam_data, ip_address)
         
-        print(f"Sending CAM to {unicast_ip}:", cam_data)
+        print(f"Sending CAM to {ip_address}:", cam_data)
         
         # Wait for 0.1 seconds before sending the next message
         time.sleep(0.1)
+
+# Function to parse and print the relevant fields from the CAM message
+def print_cam_data(cam_data):
+    cam_parameters = cam_data['cam']['camParameters']
+    
+    # Extracting the high frequency container values
+    high_freq = cam_parameters['highFrequencyContainer']
+    distance = high_freq['distance']
+    relative_speed = high_freq['relativeSpeed']
+    node_id = high_freq['nodeId']
+    acceleration = high_freq['acceleration']
+    controller_acceleration = high_freq['controllerAcceleration']
+    speed = high_freq['speed']
+
+    # Extracting the basic container reference position
+    basic_container = cam_parameters['basicContainer']
+    posx = basic_container['referencePosition']['posx']
+    posy = basic_container['referencePosition']['posy']
+    
+    # Print the extracted data
+    print(f"Distance: {distance}")
+    print(f"Relative Speed: {relative_speed}")
+    print(f"Node ID: {node_id}")
+    print(f"Acceleration: {acceleration}")
+    print(f"Controller Acceleration: {controller_acceleration}")
+    print(f"Speed: {speed}")
+    print(f"Position X: {posx}")
+    print(f"Position Y: {posy}")
+    print("-" * 50)
+
+# Function to receive CAM messages via UDP and print them
+def receive_cam_messages():
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.bind(('0.0.0.0', 37020))  # Bind to all available interfaces and port 37020
+
+    print("Listening for CAM messages...")
+
+    while True:
+        data, addr = udp_socket.recvfrom(1024)  # Buffer size is 1024 bytes
+        cam_data = json.loads(data.decode('utf-8'))  # Parse the received JSON data
+
+        print(f"Received CAM message from {addr}")
+        print_cam_data(cam_data)
+
+# Main function to run the send and receive threads
+def main():
+    # Create the initial CAM object
+    reference_position = ReferencePosition(posx=100.0, posy=200.0)
+    basic_container = BasicContainer(referencePosition=reference_position)
+    high_freq_container = HighFrequencyContainer(
+        BasicVehicleContainerHighFrequency(
+            distance=10.5, relativeSpeed=1.2, nodeId=1, acceleration=2.0, controllerAcceleration=1.5, speed=60.0
+        )
+    )
+    cam_params = CamParameters(basic_container, high_freq_container)
+    cam_message = CAM(ItsPduHeader(), CoopAwareness(cam_params))
+
+    # Define the IP address for unicast
+    unicast_ip = '192.168.1.100'  # Replace with the target device's IP address
+
+    # Open the file containing the data for sending
+    file = open('0.txt', 'r')
+
+    # Create a thread for sending CAM messages
+    send_thread = threading.Thread(target=send_cam_messages, args=(cam_message, file, unicast_ip))
+
+    # Create a thread for receiving CAM messages
+    receive_thread = threading.Thread(target=receive_cam_messages)
+
+    # Start both threads
+    send_thread.start()
+    receive_thread.start()
+
+    # Join threads to the main thread to keep them running
+    send_thread.join()
+    receive_thread.join()
+
+# Run the program
+if __name__ == "__main__":
+    main()
