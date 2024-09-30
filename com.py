@@ -125,8 +125,8 @@ def main():
     try:
         with open(file_path, 'r') as file:
             # Create threads for sending and receiving CAM messages
-            send_thread = threading.Thread(target=send_cam_messages, args=(cam_message, file, broadcast_ip, stop_event))
-            receive_thread = threading.Thread(target=receive_cam_messages, args=(stop_event,))
+            send_thread = threading.Thread(target=send_cam_messages, args=(cam_message, file, broadcast_ip))
+            receive_thread = threading.Thread(target=receive_cam_messages)
             send_thread.start()
             receive_thread.start()
             send_thread.join()
