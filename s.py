@@ -115,25 +115,24 @@ def print_cam_data(cam_data):
 # Function to receive CAM messages via UDP and print them
 def receive_cam_messages():
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp_socket.bind(('0.0.0.0', 37020))  # Bind to all available interfaces and port 37020
-
-    # 获取本机 IP 地址，用于过滤自己发送的广播消息
-    local_ip = socket.gethostbyname(socket.gethostname())
+    udp_socket.bind(('0.0.0.0', 37020))  # 监听所有接口上的 37020 端口
 
     print("Listening for CAM messages...")
 
     while True:
-        data, addr = udp_socket.recvfrom(1024)  # Buffer size is 1024 bytes
-        
-        # addr[0] 是发送者的 IP 地址
-        if addr[0] == local_ip:
-            # 如果消息是从自己发出的，则跳过
+        data, addr = udp_socket.recvfrom(1024)  # 设置缓冲区大小为 1024 字节
+        cam_data = json.loads(data.decode('utf-8'))  # 解析接收到的 JSON 数据
+
+        # 从接收到的 CAM 数据中提取 nodeId
+        received_node_id = cam_data['cam']['camParameters']['highFrequencyContainer']['nodeId']
+
+        # 如果接收到的消息是自己发送的（通过 nodeId 过滤），则跳过
+        if received_node_id == 0:
             continue
-        
-        cam_data = json.loads(data.decode('utf-8'))  # Parse the received JSON data
 
         print(f"Received CAM message from {addr}")
         print_cam_data(cam_data)
+
 
 # Main function to run the send and receive threads
 def main():
