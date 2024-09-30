@@ -80,8 +80,6 @@ def send_cam_messages(cam, file, ip_address):
         # Send the serialized CAM message
         send_cam(cam_data, ip_address)
         
-        print(f"Sending CAM to {ip_address}:", cam_data)
-        
         # Wait for 0.1 seconds before sending the next message
         time.sleep(0.1)
 
