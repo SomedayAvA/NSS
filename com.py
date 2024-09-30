@@ -3,7 +3,7 @@ import json
 import time
 import threading
 from CAM import CAM, ItsPduHeader, CoopAwareness, CamParameters, BasicContainer, ReferencePosition, HighFrequencyContainer, BasicVehicleContainerHighFrequency
-
+node_id = 0
 def serialize_cam(cam):
     return json.dumps({
         'header': {
@@ -101,25 +101,25 @@ def receive_cam_messages(stop_event):
         cam_data = json.loads(data.decode('utf-8'))
 
         received_node_id = cam_data['cam']['camParameters']['highFrequencyContainer']['nodeId']
-        if received_node_id == 0:  # Filter out own messages
+        if received_node_id == node_id:  # Filter out own messages
             continue
 
         print(f"Received CAM message from {addr}")
         print_cam_data(cam_data)
 
 def main():
-    reference_position = ReferencePosition(posx=100.0, posy=200.0)
+    reference_position = ReferencePosition(posx, posy)
     basic_container = BasicContainer(referencePosition=reference_position)
     high_freq_container = HighFrequencyContainer(
         BasicVehicleContainerHighFrequency(
-            distance=10.5, relativeSpeed=1.2, nodeId=1, acceleration=2.0, controllerAcceleration=1.5, speed=60.0
+            distance, relativeSpeed, nodeId, acceleration, controllerAcceleration, speed
         )
     )
     cam_params = CamParameters(basic_container, high_freq_container)
     cam_message = CAM(ItsPduHeader(), CoopAwareness(cam_params))
 
     broadcast_ip = '10.15.4.255'  
-    file_path = '0.txt'  
+    file_path = f'{node_id}.txt'  
 
     # Stop event to control threads
     stop_event = threading.Event()
