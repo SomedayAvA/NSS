@@ -48,28 +48,28 @@ def send_cam(data, ip_address, port=37020):
         print(f"Error sending CAM message: {e}")
 
 def send_cam_messages(cam, file, ip_address, stop_event):
-    while not stop_event.is_set():
+    
         # Read the next 8 lines of data from the file
-        data = read_data_from_file(file)
-        if data is None:
-            print("End of file reached or invalid data.")
-            break
+    data = read_data_from_file(file)
+    if data is None:
+        print("End of file reached or invalid data.")
+        break
 
-        cam.cam.camParameters.highFrequencyContainer.container.distance = data[0]
-        cam.cam.camParameters.highFrequencyContainer.container.relativeSpeed = data[1]
-        cam.cam.camParameters.highFrequencyContainer.container.nodeId = int(data[2])
-        cam.cam.camParameters.highFrequencyContainer.container.acceleration = data[3]
-        cam.cam.camParameters.highFrequencyContainer.container.controllerAcceleration = data[4]
-        cam.cam.camParameters.highFrequencyContainer.container.speed = data[5]
-        cam.cam.camParameters.basicContainer.referencePosition.posx = data[6]
-        cam.cam.camParameters.basicContainer.referencePosition.posy = data[7]
+    cam.cam.camParameters.highFrequencyContainer.container.distance = data[0]
+    cam.cam.camParameters.highFrequencyContainer.container.relativeSpeed = data[1]
+    cam.cam.camParameters.highFrequencyContainer.container.nodeId = int(data[2])
+    cam.cam.camParameters.highFrequencyContainer.container.acceleration = data[3]
+    cam.cam.camParameters.highFrequencyContainer.container.controllerAcceleration = data[4]
+    cam.cam.camParameters.highFrequencyContainer.container.speed = data[5]
+    cam.cam.camParameters.basicContainer.referencePosition.posx = data[6]
+    cam.cam.camParameters.basicContainer.referencePosition.posy = data[7]
 
-        cam.cam.generationDeltaTime = cam.cam.generate_delta_time()
+    cam.cam.generationDeltaTime = cam.cam.generate_delta_time()
 
-        cam_data = serialize_cam(cam)
-        send_cam(cam_data, ip_address)
+    cam_data = serialize_cam(cam)
+    send_cam(cam_data, ip_address)
 
-        time.sleep(0.1)
+    time.sleep(0.1)
 
 def print_cam_data(cam_data):
     try:
@@ -121,8 +121,6 @@ def main():
     broadcast_ip = '10.15.4.255'  
     file_path = f'{node_id}.txt'  
 
-    # Stop event to control threads
-    stop_event = threading.Event()
 
     try:
         with open(file_path, 'r') as file:
@@ -132,13 +130,11 @@ def main():
             send_thread.start()
             receive_thread.start()
             send_thread.join()
-            stop_event.set()  # Signal receive thread to stop
             receive_thread.join()
     except FileNotFoundError:
         print(f"File {file_path} not found.")
     except KeyboardInterrupt:
         print("Program interrupted by user.")
-        stop_event.set()  # Signal threads to stop
 
 if __name__ == "__main__":
     main()
