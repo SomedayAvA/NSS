@@ -43,7 +43,6 @@ def read_data_from_file(file):
             return None
         return lines
     except ValueError as e:
-        print(f"Error reading data: {e}")
         return None
 
 def send_cam(data, ip_address):
