@@ -47,7 +47,7 @@ def send_cam(data, ip_address, port=37020):
     except Exception as e:
         print(f"Error sending CAM message: {e}")
 
-def send_cam_messages(cam, file, ip_address, stop_event):
+def send_cam_messages(cam, file, ip_address):
     
         # Read the next 8 lines of data from the file
     data = read_data_from_file(file)
@@ -89,7 +89,7 @@ def print_cam_data(cam_data):
     except KeyError as e:
         print(f"Error parsing CAM data: missing {e}")
 
-def receive_cam_messages(stop_event):
+def receive_cam_messages():
     try:
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         udp_socket.bind(('0.0.0.0', 37020))  
